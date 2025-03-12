@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Expense Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .container {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 350px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #333;
+        }
+        input {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            color: white;
+            border: none;
+            padding: 10px;
+            width: 100%;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .login-btn {
+            background: #007bff;
+        }
+        .login-btn:hover {
+            background: #0056b3;
+        }
+        .add-btn {
+            background: #28a745;
+        }
+        .add-btn:hover {
+            background: #218838;
+        }
+        .view-btn {
+            background: #ffc107;
+            color: black;
+        }
+        .view-btn:hover {
+            background: #e0a800;
+        }
+        .close-btn {
+            background: #dc3545;
+        }
+        .close-btn:hover {
+            background: #c82333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="loginContainer">
+        <h2>Login</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button class="login-btn" onclick="login()">Login</button>
+    </div>
+    <div class="container" id="expenseTracker" style="display: none;">
+        <h2>Expense Tracker</h2>
+        <input type="text" id="expenseName" placeholder="Expense Name">
+        <input type="number" id="expenseAmount" placeholder="Amount">
+        <button class="add-btn" onclick="addExpense()">Add Expense</button>
+        <button class="view-btn" onclick="viewTransactions()">View Transactions</button>
+        <button class="close-btn" onclick="closeTransactions()">Close</button>
+        <h3>Total: $<span id="totalAmount">0</span></h3>
+        <table id="transactionTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody id="transactionBody"></tbody>
+        </table>
+    </div>
+    <canvas id="expenseChart" style="display: none;"></canvas>
+
+    <script>
+        let total = 0;
+        let storedExpenses = JSON.parse(localStorage.getItem('expenses')) || [];
+        let expenses = mergeExpenses(storedExpenses);
+        let chart;
+
+        function mergeExpenses(expenseList) {
+            let merged = {};
+            expenseList.forEach(exp => {
+                merged[exp.name] = (merged[exp.name] || 0) + exp.amount;
+            });
+            return Object.keys(merged).map(name => ({ name, amount: merged[name] }));
+        }
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (username === "admin" && password === "password") {
+                document.getElementById('loginContainer').style.display = 'none';
+                document.getElementById('expenseTracker').style.display = 'block';
+                document.getElementById('expenseChart').style.display = 'block';
+                updateChart();
+                updateTotal();
+            } else {
+                alert('Invalid credentials! Try again.');
+            }
+        }
+
+        function updateChart() {
+            if (chart) chart.destroy();
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: expenses.map(exp => exp.name),
+                    datasets: [{
+                        label: 'Expenses',
+                        data: expenses.map(exp => exp.amount),
+                        backgroundColor: '#36a2eb',
+                        barThickness: 20
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { stacked: true },
+                        y: { beginAtZero: true, stacked: true }
+                    }
+                }
+            });
+        }
+
+        function addExpense() {
+            const name = document.getElementById('expenseName').value;
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            
+            if (name === '' || isNaN(amount) || amount <= 0) {
+                alert('Please enter a valid expense name and amount.');
+                return;
+            }
+            
+            storedExpenses.push({ name, amount });
+            storedExpenses = mergeExpenses(storedExpenses);
+            localStorage.setItem('expenses', JSON.stringify(storedExpenses));
+            expenses = storedExpenses;
+            updateChart();
+            updateTotal();
+            
+            document.getElementById('expenseName').value = '';
+            document.getElementById('expenseAmount').value = '';
+        }
+        
+        function updateTotal() {
+            total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+            document.getElementById('totalAmount').innerText = total.toFixed(2);
+        }
+        
+        function viewTransactions() {
+            const table = document.getElementById('transactionTable');
+            const tbody = document.getElementById('transactionBody');
+            tbody.innerHTML = '';
+            
+            expenses.forEach(exp => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${exp.name}</td><td>$${exp.amount.toFixed(2)}</td>`;
+                tbody.appendChild(row);
+            });
+            
+            table.style.display = 'table';
+        }
+
+        function closeTransactions() {
+            document.getElementById('transactionTable').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
